@@ -1,25 +1,26 @@
 import simpy
 
-from network import GroundStation, Plane
 from utils import *
+from network import Plane, GroundStation
 
-ground_start = GroundStation()
-ground_end = GroundStation()
 plane_counter = 0
-def plane_generator(env: simpy.Environment, mp: float):
+def plane_generator(env: simpy.Environment, mplane: float, mpacket: float, distance: float):
+    ground_start = GroundStation("start", 0)
+    ground_end = GroundStation("end", distance)
     last_node = ground_start
     while True:
-        yield env.timeout(mp)
-        plane = Plane()
-        env.process(plane.take_off(env, 5000*KM, last_node, ground_start))
+        yield env.timeout(mplane)
+        plane = Plane(mpacket) 
+        env.process(plane.take_off(env, ground_start, ground_end, last_node))
         last_node = plane
 
 # t: simulation time
-# mp: plane take off interarrival
-def simulation(t=12*H, mp=30*MIN):
+# mplane: plane take off interarrival
+# mpacket: plane take off interarrival
+# distance: plane route distance
+def simulation(t=12*H, mplane=30*MIN, mpacket=50*MS, distance=5000*KM):# todo set mpacket 50MCS
     env = simpy.Environment()
-
-    env.process(plane_generator(env, mp))
+    env.process(plane_generator(env, mplane, mpacket, distance))
 
     env.run(until=t)
 

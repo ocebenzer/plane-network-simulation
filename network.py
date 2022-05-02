@@ -56,7 +56,7 @@ class Plane:
         while self.onAir or len(self.packet_buffer.items) > 0: # stop once plane lands
             packet = yield self.packet_buffer.get()
             yield env.timeout(exponential(self.mprocess)) # packet process delay
-            receiving_node = self.node_ahead if True else self.node_behind
+            receiving_node = self.node_behind if self.distance > 2*self.get_distance(env.now) else self.node_ahead
             yield env.timeout(abs(self.get_distance(env.now) - receiving_node.get_distance(env.now))/(300000*KM/SEC)) # lightspeed delay
             receiving_node.receive_packet(env, packet)
 

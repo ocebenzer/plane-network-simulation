@@ -27,7 +27,7 @@ def clock(env: simpy.Environment):
 # mprocess: packet process (per plane) delay
 # buffer_size: packet buffer size (per plane)
 # distance: plane route distance
-def simulation(t=2*H, mplane=30*MIN, mpacket=50*MS, mprocess=200*MS, buffer_size=100000, distance=5000*KM):
+def simulation(t=2*H, mplane=30*MIN, mpacket=5*MS, mprocess=5*MS, buffer_size=100, distance=5000*KM):
     env = simpy.Environment()
     
     env.process(plane_generator(env, mplane, mpacket, mprocess, buffer_size, distance))

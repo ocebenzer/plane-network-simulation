@@ -1,3 +1,4 @@
+import simpy
 import string
 
 
@@ -9,8 +10,9 @@ MCS = 1/3600000000
 
 KM = 1
 
-def log(timestamp: float, text: string):
+def log(env: simpy.Environment, text: string = ""):
+    timestamp = env.now
     hour = int(timestamp)
     minute = int(timestamp*60 - hour*60)
     second = timestamp*3600 - hour*3600 - minute*60
-    print(f"{hour:2d}H {minute:02d}M {second:07.04f}: {text}")
+    print(f"{hour:2d}h.{minute:02d}m.{second:07.04f}: {text}")

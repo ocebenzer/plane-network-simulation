@@ -2,17 +2,20 @@ import simpy
 import string
 
 
-H = 3600
-MIN = 60
-SEC = 1
-MS = 1/1000
-MCS = 1/1000000
+MCS = 1
+MS = 1000*MCS
+SEC = 1000*MS
+MIN = 60*SEC
+H = 60*MIN
 
 KM = 1
+LIGHT_SECOND = 300000*KM
 
-def log(env: simpy.Environment, text: string = ""):
-    timestamp = env.now
+def to_datetime(timestamp: int):
     hour = int(timestamp/H)
-    minute = int(timestamp/MIN - hour*60)
-    second = timestamp/SEC - hour*3600 - minute*60
-    print(f"{hour:2d}h.{minute:02d}m.{second:07.04f}: {text}")
+    minute = int((timestamp - hour*H)/MIN)
+    second = int((timestamp - hour*H - minute*MIN)/SEC)
+    ms = int((timestamp - hour*H - minute*MIN - second*SEC)/MS)
+    return f"{hour:2}h.{minute:02}m.{second:02}s.{ms:04}"
+def log(env: simpy.Environment, text: string = ""):
+    print(f"{to_datetime(env.now)}: {text}")

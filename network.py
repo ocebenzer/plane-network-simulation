@@ -6,6 +6,7 @@ from numpy.random import exponential
 from utils import *
 
 class Packet:
+    total_delay = 0
     transfered = 0
     created = 0
     dropped = 0
@@ -30,6 +31,7 @@ class GroundStation:
 
     def receive_packet(self, env: Environment, packet: Packet):
         Packet.transfered += 1
+        Packet.total_delay += env.now - packet.timestamp
         #log(env, f"{packet} was received by {self}")
 
 plane_counter = 0
@@ -43,7 +45,7 @@ class Plane:
         self.packet_buffer_capacity = buffer_size
         self.packet_counter = 0
     def __repr__(self):
-        return f"Plane{self.id}\t"
+        return f"Plane{self.id:02}"
 
     def receive_packet(self, env: Environment, packet: Packet):
         if len(self.packet_buffer.items) < self.packet_buffer.capacity:
@@ -57,7 +59,7 @@ class Plane:
             packet = yield self.packet_buffer.get()
             yield env.timeout(exponential(self.mprocess)) # packet process delay
             receiving_node = self.node_behind if self.distance > 2*self.get_distance(env.now) else self.node_ahead
-            yield env.timeout(abs(self.get_distance(env.now) - receiving_node.get_distance(env.now))/(300000*KM/SEC)) # lightspeed delay
+            yield env.timeout(abs(self.get_distance(env.now) - receiving_node.get_distance(env.now))/(LIGHT_SECOND/SEC)) # lightspeed delay
             receiving_node.receive_packet(env, packet)
 
     def generate_packets(self, env: Environment):
@@ -81,7 +83,7 @@ class Plane:
         if type(self.node_ahead) is Plane:
             self.node_ahead.node_behind = self
 
-        log(env, f"{self.id} has taken off")
+        log(env, f"{self} has taken off")
         self.packet_buffer = Store(env, capacity=self.packet_buffer_capacity)
         self.packet_generator = env.process(self.generate_packets(env))
         self.packet_processor = env.process(self.process_packets(env))
@@ -92,4 +94,4 @@ class Plane:
         if type(self.node_behind) is Plane:
             self.node_behind.node_ahead = node_end
         self.onAir = False
-        log(env, f"{self.id} has landed")
+        log(env, f"{self} has landed")

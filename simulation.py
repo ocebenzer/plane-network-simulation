@@ -1,5 +1,4 @@
 import simpy
-from functools import reduce
 
 from utils import *
 from network import Plane, Packet, GroundStation
@@ -27,16 +26,17 @@ def clock(env: simpy.Environment):
 # mprocess: packet process (per plane) delay
 # buffer_size: packet buffer size (per plane)
 # distance: plane route distance
-def simulation(t=2*H, mplane=30*MIN, mpacket=5*MS, mprocess=5*MS, buffer_size=100, distance=5000*KM):
+def simulation(t=24*H, mplane=30*MIN, mpacket=50*MS, mprocess=2*MS, buffer_size=20, distance=6000*KM):
     env = simpy.Environment()
     
     env.process(plane_generator(env, mplane, mpacket, mprocess, buffer_size, distance))
     #env.process(clock(env))
 
     env.run(until=t)
-    print("completed transfers", f"{Packet.transfered}")
-    print("success ratio", f"{Packet.created - Packet.dropped}/{Packet.created}")
-    print("dropped", f"{Packet.dropped}")
+    print("-- Simulation Complete --")
+    print(f"Success Ratio\t{Packet.created - Packet.dropped}/{Packet.created} ({(Packet.created - Packet.dropped)/Packet.created*100:.2f}%)")
+    print(f"Avg. latency\t{Packet.total_delay / Packet.transfered /MS:5.4f}ms")
+    print(f"Dropped\t\t{Packet.dropped}")
     pass
 
 simulation()

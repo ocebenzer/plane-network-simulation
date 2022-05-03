@@ -1,4 +1,3 @@
-from struct import pack
 from typing import Union
 from simpy import Environment, Store
 from numpy.random import exponential

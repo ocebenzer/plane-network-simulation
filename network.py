@@ -115,6 +115,7 @@ class Plane:
         self.time_at_takeoff = env.now
         self.speed = speed
         self.distance = node_end.distance - node_start.distance
+
         # add plane to the network chain
         self.node_behind = node_start
         self.node_ahead = node_ahead

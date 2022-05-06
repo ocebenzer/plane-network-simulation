@@ -1,6 +1,7 @@
 from typing import Union
 from simpy import Environment, Store
-from numpy.random import exponential
+from numpy import power, log as ln
+from numpy.random import exponential, uniform
 
 from utils import *
 
@@ -8,11 +9,13 @@ class Packet:
     total_delay = 0
     transfered = 0
     created = 0
-    dropped = 0
+    dropped_buffer = 0
+    dropped_transmission = 0
 
     def __init__(self, plane: 'Plane', timestamp: float):
         Packet.created += 1
         plane.packet_counter += 1
+
         self.plane = plane
         self.packet_no = plane.packet_counter
         self.timestamp = timestamp
@@ -33,12 +36,23 @@ class GroundStation:
         Packet.total_delay += env.now - packet.timestamp
         #log(env, f"{packet} was received by {self}")
 
-plane_counter = 0
 class Plane:
+    created = 0
+
+    # ptransmissionAT200km: packet transmission rate @200km
+    # returns gamma for packet_transmission_ratio
+    @staticmethod
+    def set_gamma(ptransmissionAT200km) -> None:
+        Plane.gamma = ln(ptransmissionAT200km) / ln(0.6) #return ln(ptransmissionAT200km)/ln((500-200)/500)
+
+    @staticmethod
+    def ptransmission(km) -> float:
+        return power((500-km)/500, Plane.gamma)
+
     def __init__(self, mpacket: float, mprocess: float, buffer_size: int):
-        global plane_counter
-        plane_counter += 1
-        self.id = plane_counter
+        Plane.created += 1
+        self.id = Plane.created
+
         self.mpacket = mpacket
         self.mprocess = mprocess
         self.packet_buffer_capacity = buffer_size
@@ -50,16 +64,38 @@ class Plane:
         if len(self.packet_buffer.items) < self.packet_buffer.capacity:
             self.packet_buffer.put(packet)
         else:
-            Packet.dropped += 1
+            Packet.dropped_buffer += 1
             #log(env, f"{packet} dropped")
 
     def process_packets(self, env: Environment):
-        while self.onAir or len(self.packet_buffer.items) > 0: # stop once plane lands
+        while self.onAir or len(self.packet_buffer.items) > 0: # stop once plane lands and all packets get processed
             packet = yield self.packet_buffer.get()
             yield env.timeout(exponential(self.mprocess)) # packet process delay
-            receiving_node = self.node_behind if self.distance > 2*self.get_distance(env.now) else self.node_ahead
-            yield env.timeout(abs(self.get_distance(env.now) - receiving_node.get_distance(env.now))/(LIGHT_SECOND/SEC)) # lightspeed delay
-            receiving_node.receive_packet(env, packet)
+
+            receiving_node = None
+            distance_receiving_node = 500*KM
+            distance_ahead = self.calculate_distance(env, self.node_ahead)
+            distance_behind = self.calculate_distance(env, self.node_behind)
+
+            if  self.distance < 2*self.get_distance(env.now) and distance_ahead < 500*KM :
+                receiving_node = self.node_ahead
+                distance_receiving_node = distance_ahead
+            elif distance_behind < 500*KM:
+                receiving_node = self.node_behind
+                distance_receiving_node = distance_behind
+            else:
+                log(f"{packet.plane} has no node to communicate\r")
+
+            # random packet loss due to transition issues
+            if uniform() > Plane.ptransmission(distance_receiving_node):
+                receiving_node = None
+
+            if receiving_node is None:
+                Packet.dropped_transmission += 1
+                continue
+            else:
+                yield env.timeout(self.calculate_distance(env, receiving_node)/(LIGHT_SECOND/SEC)) # lightspeed delay
+                receiving_node.receive_packet(env, packet)
 
     def generate_packets(self, env: Environment):
         while self.onAir: # stop once plane lands
@@ -68,8 +104,13 @@ class Plane:
             self.receive_packet(env, packet)
             #log(env, f"{packet} created")
 
-    def get_distance(self, current_time):
+    # where current plane is
+    def get_distance(self, current_time: float):
         return min(self.distance, (current_time-self.time_at_takeoff)*self.speed)
+
+    # distance between two nodes
+    def calculate_distance(self, env: Environment, node: Union['Plane', 'GroundStation']):
+        return abs(self.get_distance(env.now) - node.get_distance(env.now))
 
     def take_off(self, env: Environment, node_start: GroundStation, node_end: GroundStation, node_ahead: Union['Plane', GroundStation], speed = 1500*KM/H):
         self.onAir = True

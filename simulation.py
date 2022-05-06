@@ -18,7 +18,7 @@ def plane_generator(env: simpy.Environment, mplane: float, mpacket: float, mproc
 def clock(env: simpy.Environment):
     while True:
         yield env.timeout(1*MIN)
-        log(env)
+        log(env, end="\r")
 
 # t: simulation time
 # mplane: plane take off interarrival
@@ -32,7 +32,7 @@ def simulation(t=1*H, mplane=15*MIN, mpacket=50*MS, mprocess=2*MS, buffer_size=1
     Plane.set_gamma(ptransmissionAT200)
 
     env.process(plane_generator(env, mplane, mpacket, mprocess, buffer_size, distance))
-    #env.process(clock(env))
+    env.process(clock(env))
 
     env.run(until=t)
     print("-- Simulation Complete --")

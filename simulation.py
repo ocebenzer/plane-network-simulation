@@ -28,12 +28,12 @@ def clock(env: simpy.Environment, interarrival: float, simulation_starttime: flo
 # buffer_size: packet buffer size (per plane)
 # distance: plane route distance
 # ptransmission: success chance of a packet at 200km distance
-def simulation(simulation_starttime=4*H, t=60*SEC, mplane=15*MIN, mpacket=10*MS, mprocess=50*MCS, buffer_size=1000, plane_speed=1500*KM/H, distance=6000*KM, ptransmissionAT200=0.999):
+def simulation(simulation_starttime=4*H, t=0.2*SEC, mplane=15*MIN, mpacket=100*MCS, mprocess=0.15*MCS, buffer_size=100, plane_speed=1500*KM/H, distance=6000*KM, ptransmissionAT200=0.9995):
     Plane.set_gamma(ptransmissionAT200)
 
     env = simpy.Environment()
     env.process(plane_generator(env, mplane, mpacket, mprocess, buffer_size, plane_speed, distance, simulation_starttime))
-    env.process(clock(env, 1*SEC, simulation_starttime))
+    env.process(clock(env, 10*MS, simulation_starttime))
     env.run(until=simulation_starttime + t)
 
     print("-- Simulation Complete --")
@@ -45,9 +45,9 @@ def simulation(simulation_starttime=4*H, t=60*SEC, mplane=15*MIN, mpacket=10*MS,
         print("No packets were transfered")
         return
     print(f"Avg. latency\t{Packet.total_delay / Packet.transfered /MS:5.4f}ms")
-    print(f"Packets dropped:\t{Packet.dropped_buffer + Packet.dropped_transmission}")
-    print(f"\t Due to buffer\t\t{Packet.dropped_buffer}")
-    print(f"\t Due to transmission\t{Packet.dropped_transmission}")
+    print(f"Packets dropped:{Packet.dropped_buffer + Packet.dropped_transmission}")
+    print(f"\t Due to buffer\t\t{Packet.dropped_buffer}\t({Packet.dropped_buffer/Packet.created*100:.2f}%)")
+    print(f"\t Due to transmission\t{Packet.dropped_transmission}\t({Packet.dropped_transmission/Packet.created*100:.2f}%)")
     pass
 
 simulation()

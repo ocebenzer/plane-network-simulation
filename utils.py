@@ -16,7 +16,7 @@ def to_datetime(timestamp: int):
     minute = int((timestamp - hour*H)/MIN)
     second = int((timestamp - hour*H - minute*MIN)/SEC)
     ms = int((timestamp - hour*H - minute*MIN - second*SEC)/MS)
-    return f"{hour:2}h.{minute:02}m.{second:02}s.{ms:04}"
+    return f"{hour:2}h.{minute:02}m.{second:02}s.{ms:03}"
 
 def log(env: simpy.Environment, text: string = "", end: string = "\n"):
     print(f"{to_datetime(env.now)}: {text}", end=end)

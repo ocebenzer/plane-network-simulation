@@ -21,6 +21,17 @@ class Packet:
         self.timestamp = plane.env.now
     def __repr__(self):
         return f"Packet{self.plane.id}.{self.packet_no}\t"
+    
+    def transmit(self, env, sender, receiver):
+        yield env.timeout(Plane.lightspeed_delay(sender.calculate_distance(receiver))) # lightspeed delay
+        if type(receiver) is GroundStation:
+            Packet.transfered += 1
+            Packet.total_delay += self.plane.env.now - self.timestamp
+            return
+        if len(receiver.packet_buffer.items) < receiver.packet_buffer.capacity:
+            receiver.packet_buffer.put(self)
+        else:
+            Packet.dropped_buffer += 1
 
 class GroundStation:
     def __init__(self, id: string, distance: float):
@@ -30,10 +41,6 @@ class GroundStation:
         return f"GroundStation({self.id})\t"
     def get_distance(self):
         return self.distance
-
-    def receive_packet(self, packet: Packet):
-        Packet.transfered += 1
-        Packet.total_delay += packet.plane.env.now - packet.timestamp
 
 class Plane:
     created = 0
@@ -48,6 +55,10 @@ class Plane:
     def ptransmission(km, transmission_range=500*KM) -> float:
         return power((transmission_range-km)/transmission_range, Plane.gamma)
 
+    @staticmethod
+    def lightspeed_delay(km) -> float:
+        return km / (LIGHT_SECOND/SEC)
+
     def __init__(self, mpacket: float, mprocess: float, buffer_size: int):
         Plane.created += 1
         self.id = Plane.created
@@ -58,12 +69,6 @@ class Plane:
         self.packet_counter = 0
     def __repr__(self):
         return f"Plane{self.id:02}"
-
-    def receive_packet(self, packet: Packet):
-        if len(self.packet_buffer.items) < self.packet_buffer.capacity:
-            self.packet_buffer.put(packet)
-        else:
-            Packet.dropped_buffer += 1
 
     def process_packets(self, env: Environment):
         while self.onAir or len(self.packet_buffer.items) > 0: # stop once plane lands and all packets get processed
@@ -92,8 +97,7 @@ class Plane:
                 Packet.dropped_transmission += 1
                 continue
             else:
-                yield env.timeout(self.calculate_distance(receiving_node)/(LIGHT_SECOND/SEC)) # lightspeed delay
-                receiving_node.receive_packet(packet)
+                env.process(packet.transmit(env, self, receiving_node))
 
     def generate_packets(self, env: Environment, simulation_starttime: float):
         if simulation_starttime - env.now > 0:
@@ -101,7 +105,7 @@ class Plane:
         while self.onAir: # stop once plane lands
             yield env.timeout(exponential(self.mpacket))
             packet = Packet(self)
-            self.receive_packet(packet)
+            env.process(packet.transmit(env, self, self))
 
     # where current plane is
     def get_distance(self):

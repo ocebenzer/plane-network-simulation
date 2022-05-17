@@ -41,12 +41,12 @@ class Plane:
     # ptransmissionAT200km: packet transmission rate @200km
     # returns gamma for packet_transmission_ratio
     @staticmethod
-    def set_gamma(ptransmissionAT200km) -> None:
-        Plane.gamma = ln(ptransmissionAT200km) / ln(0.6) #return ln(ptransmissionAT200km)/ln((500-200)/500)
+    def set_gamma(ptransmissionAT200km, transmission_range=500*KM) -> None:
+        Plane.gamma = ln(ptransmissionAT200km) / ln((transmission_range-200*KM)/transmission_range) #return ln(ptransmissionAT200km)/ln((500-200)/500)
 
     @staticmethod
-    def ptransmission(km) -> float:
-        return power((500-km)/500, Plane.gamma)
+    def ptransmission(km, transmission_range=500*KM) -> float:
+        return power((transmission_range-km)/transmission_range, Plane.gamma)
 
     def __init__(self, mpacket: float, mprocess: float, buffer_size: int):
         Plane.created += 1
@@ -95,7 +95,9 @@ class Plane:
                 yield env.timeout(self.calculate_distance(receiving_node)/(LIGHT_SECOND/SEC)) # lightspeed delay
                 receiving_node.receive_packet(packet)
 
-    def generate_packets(self, env: Environment):
+    def generate_packets(self, env: Environment, simulation_starttime: float):
+        if simulation_starttime - env.now > 0:
+            yield env.timeout(simulation_starttime - env.now)
         while self.onAir: # stop once plane lands
             yield env.timeout(exponential(self.mpacket))
             packet = Packet(self)
@@ -109,7 +111,7 @@ class Plane:
     def calculate_distance(self, node: Union['Plane', 'GroundStation']):
         return abs(self.get_distance() - node.get_distance())
 
-    def take_off(self, env: Environment, node_start: GroundStation, node_end: GroundStation, node_ahead: Union['Plane', GroundStation], speed = 1500*KM/H):
+    def take_off(self, env: Environment, node_start: GroundStation, node_end: GroundStation, node_ahead: Union['Plane', GroundStation], speed: float, simulation_starttime = -1):
         self.onAir = True
         self.env = env
         self.time_at_takeoff = env.now
@@ -124,8 +126,8 @@ class Plane:
 
         log(env, f"{self} has taken off")
         self.packet_buffer = Store(env, capacity=self.packet_buffer_capacity)
-        self.packet_generator = env.process(self.generate_packets(env))
         self.packet_processor = env.process(self.process_packets(env))
+        self.packet_generator = env.process(self.generate_packets(env, simulation_starttime))
 
         yield env.timeout(self.distance/self.speed)
 

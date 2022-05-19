@@ -1,6 +1,6 @@
 from typing import Union
 from simpy import Environment, Store
-from numpy import power, log as ln
+from numpy import power, abs, log as ln
 from numpy.random import exponential, uniform
 
 from utils import *
@@ -29,6 +29,7 @@ class Packet:
             Packet.total_delay += self.plane.env.now - self.timestamp
             return
         if len(receiver.packet_buffer.items) < receiver.packet_buffer.capacity:
+            self.sender = sender
             receiver.packet_buffer.put(self)
         else:
             Packet.dropped_buffer += 1
@@ -53,7 +54,7 @@ class Plane:
 
     @staticmethod
     def ptransmission(km, transmission_range=500*KM) -> float:
-        return power((transmission_range-km)/transmission_range, Plane.gamma)
+        return power(abs(transmission_range-km)/transmission_range, Plane.gamma)
 
     @staticmethod
     def lightspeed_delay(km) -> float:
@@ -80,14 +81,23 @@ class Plane:
             distance_ahead = self.calculate_distance(self.node_ahead)
             distance_behind = self.calculate_distance(self.node_behind)
 
-            if  self.distance < 2*self.get_distance() and distance_ahead < 500*KM :
-                receiving_node = self.node_ahead
-                distance_receiving_node = distance_ahead
-            elif distance_behind < 500*KM:
+            if packet.plane is self:
+                if  self.distance < 2*self.get_distance() and distance_ahead < 500*KM :
+                    receiving_node = self.node_ahead
+                    distance_receiving_node = distance_ahead
+                elif distance_behind < 500*KM:
+                    receiving_node = self.node_behind
+                    distance_receiving_node = distance_behind
+                else:
+                    log(env, f"{self} has no node to communicate")
+            elif packet.sender is self.node_ahead:
                 receiving_node = self.node_behind
                 distance_receiving_node = distance_behind
+            elif packet.sender is self.node_behind:
+                receiving_node = self.node_ahead
+                distance_receiving_node = distance_ahead
             else:
-                log(env, f"{packet.plane} has no node to communicate", end="\r")
+                log(env, f"{self} has no sender")
 
             # random packet loss due to transition issues
             if uniform() > Plane.ptransmission(distance_receiving_node):
